@@ -1,0 +1,58 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+# Given a set of k+1 nodes {x_0, x_1, …, x_k}, which must all be distinct, x_j ≠ x_m for indices j ≠ m,
+# the Lagrange basis for polynomials of degree ≤ k for those nodes is the set of polynomials {ℓ_0(x), ℓ_1(x), …, ℓ_k(x)}
+# each of degree k which take values ℓ_j(x_m) = 0 if m ≠ j and ℓ_j(x_j) = 1. The Lagrange interpolating polynomial for
+# those nodes through the corresponding values {y_0, y_1, …, y_k} is the linear combination:
+# L(x) = [j=0, k]∑ y_j*ℓ_j(x).
+
+# The set of nodes (inputs) is 'x_old_set' and the set of corresponding values (known outputs) is 'y_set'.
+# The set of new points for which to find interpolated values is 'x_new_set'.
+# The set of interpolated output points will be given by lagrange(x_old_set, y_set, x_new_set).
+
+
+# poly_j is a function that computes the jth Lagrange basis polynomial evaluated at x: ℓ_j(x).
+def poly_j(x_j, x, nodes):
+    poly = 1
+    for x_m in nodes:
+        if x_m == x_j:
+            continue
+        poly = poly * (x - x_m) / (x_j - x_m)
+    return poly
+
+
+# lagrange is a function that computes a list of numbers of the linear combination L(x) evaluated at x in n_new_set.
+def lagrange(x_old_set, y_set, x_new_set):
+    interp = []
+    for m in x_new_set:
+        _L_x = 0
+        for k in range(len(x_old_set)):
+            _L_x = _L_x + y_set[k]*poly_j(x_old_set[k], m, x_old_set)
+        interp.append(_L_x)
+    return interp
+
+
+# Below is an example interpolating the function f(x) = x**2.
+a = [-2, -1, 0, 1, 2]  # Set of nodes.
+b = [4, 1, 0, 1, 4]  # b = a**2. The set of y values.
+c = [-1.5, -0.5, -0.1, 0.5, 1.5]  # Set of new points for which to find interpolated values.
+d = [2.25, 0.25, 0.01, 0.25, 2.25] # Expected value of "f" below (i.e. c**2).
+
+
+f = lagrange(np.array(a), np.array(b), np.array(c))
+print(f)
+print([2.25, 0.25, 0.01, 0.25, 2.25])
+
+# Below is an example interpolating the function g(x) = sinc(x).
+v = np.linspace(-4, 4, 21) # Set of nodes.
+s_v = np.sinc(v) # The set of y values.
+u = np.linspace(-4, 4, 41) # Set of new points for which to find interpolated values.
+s_u = np.sinc(u) # Expected value of "g" below.
+
+
+g = lagrange(v, s_v, u)
+plt.plot(u, g, "r-")
+plt.plot(u, s_u, "b-")
+plt.show()
