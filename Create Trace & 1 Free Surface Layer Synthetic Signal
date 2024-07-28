@@ -1,0 +1,87 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import scipy as sp
+import pandas as pd
+
+
+# Create Trace class that has a defined record length and sample interval. Some sorting keys may also be necessary.
+class Trace:
+    def __init__(self, record_length, sample_interval, key_1=1, key_2=1):
+        self.record_length = record_length
+        self.sample_interval = sample_interval
+        self.key_1 = key_1
+        self.key_2 = key_2
+
+    # Function that returns the nyquist frequency.
+    def nyquist(self):
+        return (1 / (self.sample_interval / 1000)) / 2
+
+    # Function that returns the time samples of the trace.
+    def time(self):
+        num = int(self.record_length / (self.sample_interval / 1000)) + 1
+        return np.linspace(0.00, self.record_length, num)
+
+    # Function that returns the amplitude samples of the trace. Set this to be zeroes in general.
+    def amplitude(self):
+        amplitude = np.zeros(len(self.time()), dtype=int)
+        return pd.Series(amplitude, self.time())
+
+
+# Create a Synthetic class using Trace that will create a synthetic trace.
+# This synthetic trace is created for a receiver at a 10m offset from the source. This is a 1 layer free surface model,
+# with the layer velocity being 1500m/s and the depth of the layer being 9m.
+class Synthetic(Trace):
+    def __init__(self, record_length, sample_interval, offset=10, v_1=1500, d_1=9):
+        super().__init__(record_length, sample_interval, key_1=1, key_2=1)
+        self.offset = offset
+        self.v_1 = v_1
+        self.d_1 = d_1
+
+    # Function that returns the primary time and amplitude samples of the trace. An amplitude of 1 for the source.
+    # Assuming all energy is reflected and no energy is lost.
+    def primary(self):
+        return pd.Series([1], [2*1*np.sqrt(((self.offset/1)/2)**2 + self.d_1**2)/self.v_1])
+
+    # Function that returns the multiple time and amplitude samples of the trace. 
+    # Assuming all energy is reflected and no energy is lost.
+    # When the signal reflects off the free surface the polarity of the signal is reversed.
+    def multiples(self):
+        multiple_times = []
+        multiple_amps = []
+        for n in range(2, 999):
+            value = multiple_times[-1] if multiple_times else 0
+            if value > self.record_length:
+                multiple_times.pop()
+                multiple_amps.pop()
+                break
+            else:
+                twt = 2*n*np.sqrt(((self.offset/n)/2)**2 + self.d_1**2)/self.v_1
+                amp = (-1)**(n+1)
+                multiple_times.append(twt)
+                multiple_amps.append(amp)
+        return pd.Series(multiple_amps, multiple_times)
+
+    # Function that returns all the time and amplitude samples of the trace disregarding the sample interval.
+    def signal_no_interp(self):
+        return pd.concat([self.primary(), self.multiples()])
+
+    # Function that returns all the time and amplitude samples of the trace respecting the sample interval.
+    def signal(self):
+        concatenation = pd.concat([self.primary(), self.multiples()])
+        x = np.array(concatenation.index.tolist())
+        y = np.array(concatenation.tolist())
+        twt = np.pad(x, int(len(self.time() / 2)), 'reflect', reflect_type='odd')
+        amp = np.pad(y, int(len(self.time() / 2)), 'constant', constant_values=0)
+        z = sp.interpolate.CubicSpline(twt, amp)
+        return pd.Series(z(self.time()), self.time())
+
+
+sig_no_interp = Synthetic(0.16, 4).signal_no_interp()
+sig = Synthetic(0.16, 4).signal()
+
+print(sig_no_interp)
+print(sig)
+
+plt.plot(sig.index.tolist(), sig.tolist(), "g-")
+plt.plot(sig_no_interp.index.tolist(), sig_no_interp.tolist(), "b-")
+plt.show()
