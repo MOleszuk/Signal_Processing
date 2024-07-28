@@ -1,0 +1,33 @@
+import math
+import cmath
+
+
+def fourier_transform(vector):
+    transform = []
+    n = len(vector)
+    for k in range(n):
+        s = 0
+        for x_m in vector:
+            m = vector.index(x_m)
+            s = s + x_m*cmath.exp(-1j*2*math.pi*k*m/n)
+        transform.insert(k, s)
+    return transform
+
+
+def inverse_fourier_transform(vector):
+    transform = []
+    n = len(vector)
+    for m in range(n):
+        s = 0
+        for X_k in vector:
+            k = vector.index(X_k)
+            s = s + X_k*cmath.exp(1j*2*math.pi*m*k/n)
+        transform.insert(m, s/n)
+    return transform
+
+
+X = [1, 2-1j, -1j, -1+2j]
+print(X)
+y = fourier_transform(X)
+print(y)
+print(inverse_fourier_transform(y))
