@@ -1,0 +1,104 @@
+# Convolution doesn't require any imported libraries.
+# cmath is necessary for Discrete Fourier Transform for the example.
+# numpy and matplotlib are to create and visualise the example.
+import cmath
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+# Slide a sequence along another (stationary) sequence. Multiply elements pair-wise and sum the products.
+def summation_for_convolution(iterating_variable, sliding_sequence, stationary_sequence, convolved_sequence):
+    h_1 = sliding_sequence[-(iterating_variable + 1):]
+    h_2 = stationary_sequence[:iterating_variable + 1]
+    mul = [h_1[n] * h_2[n] for n in range(len(h_1))]
+    convolved_sequence.append(sum(mul))
+
+
+def convolve(signal, time_filter, same_length="True"):
+    signal = list(signal)
+    time_filter = list(time_filter)
+    length_signal = len(signal)
+    length_time_filter = len(time_filter)
+    signal_convolved_time_filter = []
+    time_filter_reverse = [time_filter[-i - 1] for i in range(length_time_filter)]
+    # Convolution is commutative.
+    if length_signal < length_time_filter:
+        (signal, time_filter_reverse) = (time_filter_reverse, signal)
+    # Slide reversed filter along signal until filter fully overlaps signal.
+    for i in range(length_time_filter):
+        summation_for_convolution(i, time_filter_reverse, signal, signal_convolved_time_filter)
+    # Drop elements of signal that have been passed by every element of the filter and therefore won't be used again.
+    # Continue to slide reversed filter along signal.
+    for i in range(length_time_filter, length_signal):
+        signal.pop(0)
+        summation_for_convolution(i, time_filter_reverse, signal, signal_convolved_time_filter)
+    # Drop elements of signal that have been passed by every element of the filter and therefore won't be used again.
+    # Drop elements of filter that have been passed by every element of the signal and therefore won't be used again.
+    # Continue to slide reversed filter along signal.
+    for i in range(length_signal, length_time_filter + length_signal - 1):
+        signal.pop(0)
+        time_filter_reverse.pop()
+        summation_for_convolution(i, time_filter_reverse, signal, signal_convolved_time_filter)
+    # Truncate the output to the same length as the signal (default). Otherwise, output all elements of the convolution.
+    if same_length == "True":
+        j = 1
+        while len(signal_convolved_time_filter) > length_signal:
+            if j % 2 == 1:
+                signal_convolved_time_filter.pop(0)
+            else:
+                signal_convolved_time_filter.pop()
+            j += 1
+    return signal_convolved_time_filter
+
+
+# Below is an example to show how convolution works by filtering a sound signal with a low pass filter by convolving.
+# The convolution is performed on line 81.
+
+
+# Fourier transform is needed for the example.
+def fourier_transform(vector):
+    vector = list(vector)
+    transform = []
+    n = len(vector)
+    for k in range(n):
+        s = 0
+        for x_m in vector:
+            m = vector.index(x_m)
+            s = s + x_m*cmath.exp(-1j*2*cmath.pi*k*m/n)
+        transform.insert(k, s)
+    return transform
+
+
+# Input to sine function.
+time_values = np.linspace(0, 10*2*cmath.pi, 300)
+# sound is a sum of two sine functions, one with a low frequency (1) and one with a high frequency (8).
+sound = np.sin(1*time_values) + np.sin(8*time_values)
+# low_pass_filter is a box function.
+low_pass_filter = np.repeat([0., 1., 0.], 5)
+
+
+# filtered sound is the convolution of sound and low_pass_filter
+filtered_sound_not_normalized = convolve(sound, low_pass_filter)
+filtered_sound = [filtered_sound_not_normalized[i] / sum(low_pass_filter)
+                  for i in range(len(filtered_sound_not_normalized))]
+
+
+# Transform sound and filtered_sound to frequency domain with a Fourier transform and take the absolute value
+# to see the frequency components. Keep positive frequencies only by slicing first half of the lists.
+frequency_domain_sound = fourier_transform(sound)
+frequencies_sound = [abs(frequency_domain_sound[i]) for i in range(len(frequency_domain_sound))][:149]
+frequency_domain_filtered_sound = fourier_transform(filtered_sound)
+frequencies_filtered_sound = [abs(frequency_domain_filtered_sound[i])
+                              for i in range(len(frequency_domain_filtered_sound))][:149]
+
+
+# Suppose the x-axis represents Hz. Then we have a peak at 1Hz and 8Hz before filtering. After filtering the peak at 8Hz
+# is attenuated, so we have applied a low pass filter by convolving it with the signal.
+space = np.linspace(0, 14.8, 149)
+plt.plot(space, frequencies_sound, "b-", label="Original Sound")
+plt.plot(space, frequencies_filtered_sound, "g-", label="Filtered Sound")
+plt.legend(loc="upper right")
+plt.title('Frequency Spectra')
+plt.xlabel('Frequency ("Hz")')
+plt.ylabel('Amplitude')
+plt.show()
